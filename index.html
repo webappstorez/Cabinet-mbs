@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabinet-MBS</title>
+<style>
+  :root{
+    --bg:#f3f6f8; --card:#ffffff; --ink:#16293a; --muted:#6b7c8a; --line:#dde5ea;
+    --brand:#0f766e; --brand-dark:#0b5a54; --brand-soft:#d9f0ed; --accent:#e6a23c;
+    --danger:#c0392b; --ok:#2e7d4f; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:var(--ink);color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{width:38px;height:38px;border-radius:10px;background:var(--brand);display:grid;place-items:center;font-size:22px;font-weight:700}
+  header h1{margin:0;font-size:1.15rem}
+  header p{margin:0;font-size:.78rem;color:#aebdca}
+  nav{display:flex;gap:6px;flex-wrap:wrap}
+  nav button{background:transparent;color:#cfdae3;border:1px solid transparent;padding:8px 14px;border-radius:999px;cursor:pointer;font-size:.92rem}
+  nav button:hover{background:rgba(255,255,255,.08)}
+  nav button.active{background:var(--brand);color:#fff}
+  main{max-width:980px;margin:0 auto;padding:16px;display:grid;gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 1px 2px rgba(20,40,60,.04)}
+  h2{margin:0 0 12px;font-size:1.05rem}
+  .banner{background:#fff6e5;border:1px solid #f0d9a8;color:#7a5200;padding:10px 14px;border-radius:10px;font-size:.9rem;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+  .banner button{margin:0}
+  .badge{display:inline-block;font-size:.75rem;padding:3px 9px;border-radius:999px;background:#e8eef2;color:var(--muted)}
+  .badge.ok{background:var(--brand-soft);color:var(--brand-dark)}
+  .badge.sent{background:#e3f4ea;color:var(--ok)}
+
+  /* Calendrier */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .cal-head h2{margin:0;flex:1;text-align:center;min-width:150px}
+  .btn{background:var(--brand);color:#fff;border:0;padding:10px 16px;border-radius:10px;font-size:.95rem;cursor:pointer;font-weight:600}
+  .btn:hover{background:var(--brand-dark)}
+  .btn:disabled{background:#b9c6cd;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:500}
+  .btn.ghost:hover{background:#f1f5f7}
+  .btn.danger{background:#fff;color:var(--danger);border:1px solid #efc4be;font-weight:500}
+  .btn.small{padding:6px 12px;font-size:.85rem}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .dow{text-align:center;font-size:.75rem;color:var(--muted);padding:4px 0;text-transform:uppercase;letter-spacing:.04em}
+  .day{aspect-ratio:1/0.85;min-height:46px;border:1px solid var(--line);background:#fff;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:.95rem;color:var(--ink);padding:2px;position:relative}
+  .day:hover{border-color:var(--brand)}
+  .day.weekend{background:#f6f8fa;color:#7d8c98}
+  .day.worked{background:var(--brand-soft);border-color:#9fd4cd;font-weight:600}
+  .day.today::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .day.selected{outline:3px solid var(--brand);outline-offset:-1px}
+  .day small{font-size:.66rem;color:var(--brand-dark);font-weight:500}
+  .day.empty{visibility:hidden;cursor:default}
+  .month-strip{margin-top:12px;padding:10px 12px;background:#f3f8f7;border-radius:10px;font-size:.9rem;display:flex;gap:6px 18px;flex-wrap:wrap}
+  .month-strip b{color:var(--brand-dark)}
+  .legend{display:flex;gap:14px;margin-top:10px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid var(--line)}
+
+  /* Formulaire jour */
+  .day-title{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .day-title h2{margin:0}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+  input[type=text],input[type=number],input[type=email],input[type=month]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:1.05rem;background:#fff;color:var(--ink)}
+  input:focus{outline:2px solid var(--brand);border-color:transparent}
+  .unit{position:relative}
+  .unit input{padding-right:34px}
+  .unit span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  .actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .hint{font-size:.85rem;color:var(--muted);margin-top:10px}
+
+  /* Bilan */
+  .bilan-bar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+  .bilan-bar > div{min-width:190px}
+  .doc{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:28px;max-width:720px;margin:0 auto}
+  .doc h3{margin:0;font-size:1.3rem}
+  .doc .sub{color:var(--muted);margin:2px 0 18px}
+  table{width:100%;border-collapse:collapse}
+  .kv td{padding:10px 4px;border-bottom:1px solid var(--line)}
+  .kv td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .kv tr.total td{border-bottom:0;border-top:2px solid var(--ink);font-size:1.15rem;color:var(--brand-dark);padding-top:14px}
+  .detail{margin-top:18px}
+  .detail summary{cursor:pointer;color:var(--brand-dark);font-weight:600}
+  .detail table{margin-top:8px;font-size:.9rem}
+  .detail th,.detail td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+  .detail th:first-child,.detail td:first-child{text-align:left}
+  .detail th{color:var(--muted);font-weight:500;font-size:.8rem}
+  .sendbox{display:grid;gap:12px}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:.95rem;color:var(--ink);margin:0}
+  .check input{margin-top:4px;width:18px;height:18px}
+  .mailinfo{font-size:.85rem;color:var(--muted)}
+
+  [hidden]{display:none!important}
+
+  /* Connexion */
+  #loginOverlay{position:fixed;inset:0;background:var(--bg);z-index:40;display:grid;place-items:center;padding:16px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:26px;width:100%;max-width:380px;display:grid;gap:12px;box-shadow:0 10px 40px rgba(20,40,60,.12)}
+  .loginbox .logo{margin:0 auto}
+  .loginbox h2{text-align:center;margin:0}
+  .loginbox p{margin:0;text-align:center;color:var(--muted);font-size:.9rem}
+  .lerr{color:var(--danger);font-size:.88rem;min-height:1.2em}
+
+  /* Historique */
+  .badge.warn{background:#fff1d6;color:#7a5200}
+  .badge.paid{background:#e3f4ea;color:var(--ok)}
+  .hrow{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line)}
+  .hrow:last-child{border-bottom:0}
+  .hmain{flex:1;min-width:230px}
+  .hnums{display:block;color:var(--muted);font-size:.88rem;margin:2px 0 6px}
+  .hrow ul,.sendlog ul{margin:6px 0 0;padding-left:18px;font-size:.85rem;color:var(--muted)}
+  .hrow details summary{cursor:pointer;font-size:.85rem;color:var(--brand-dark)}
+  .hpay{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .hpay small{color:var(--muted);font-size:.8rem}
+  .sendlog{font-size:.88rem}
+  #histList{margin-top:6px}
+
+  dialog{border:0;border-radius:var(--radius);padding:0;max-width:480px;width:calc(100% - 28px);box-shadow:0 20px 60px rgba(10,30,50,.35)}
+  dialog::backdrop{background:rgba(10,25,40,.5)}
+  dialog form{padding:20px;display:grid;gap:14px}
+  dialog h2{margin:0}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;opacity:0;transition:.25s;pointer-events:none;font-size:.92rem;z-index:50;max-width:90%}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:var(--danger)}
+
+  @media (max-width:560px){
+    .fields{grid-template-columns:1fr}
+    .day small{display:none}
+    .day{min-height:42px}
+    .doc{padding:18px}
+  }
+  @media print{
+    body{background:#fff}
+    header,.no-print,#toast{display:none!important}
+    main{padding:0;max-width:none}
+    .card{border:0;box-shadow:none;padding:0}
+    .doc{border:0;padding:0;max-width:none}
+    .detail[open] summary,.detail summary{display:none}
+    .detail > *:not(summary){display:block}
+  }
+</style>
+<!-- Génération du PDF (jsPDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<header class="no-print">
+  <div class="brand">
+    <div class="logo">✚</div>
+    <div>
+      <h1>Cabinet-MBS</h1>
+      <p>Recettes du cabinet &amp; bilans mensuels · <span id="storeLabel">…</span></p>
+    </div>
+  </div>
+  <nav>
+    <button data-tab="saisie" class="active">Saisie</button>
+    <button data-tab="bilan">Bilan du mois</button>
+    <button data-tab="historique">Historique</button>
+    <button id="btnSettings">⚙ Réglages</button>
+    <button id="btnLogout" hidden>Déconnexion</button>
+  </nav>
+</header>
+
+<main>
+  <div id="setupBanner" class="banner no-print" hidden>
+    <span>Pensez à renseigner vos réglages : % de charges, votre e-mail et celui du destinataire.</span>
+    <button class="btn small" id="bannerSettings">Ouvrir les réglages</button>
+  </div>
+
+  <!-- ============ SAISIE ============ -->
+  <section id="tab-saisie" style="display:grid;gap:16px">
+    <div class="card">
+      <div class="cal-head">
+        <button class="btn ghost small" id="prevM" aria-label="Mois précédent">◀</button>
+        <h2 id="calTitle"></h2>
+        <button class="btn ghost small" id="nextM" aria-label="Mois suivant">▶</button>
+        <button class="btn ghost small" id="todayBtn">Aujourd'hui</button>
+      </div>
+      <div class="grid" id="dows"></div>
+      <div class="grid" id="calGrid" style="margin-top:5px"></div>
+      <div class="month-strip" id="monthStrip"></div>
+      <div class="legend">
+        <span><i style="background:var(--brand-soft);border-color:#9fd4cd"></i>Jour travaillé</span>
+        <span><i style="background:#f6f8fa"></i>Week-end</span>
+        <span><i style="background:var(--accent);border-radius:50%"></i>Aujourd'hui</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="day-title">
+        <h2 id="dayTitle"></h2>
+        <span id="dayBadge" class="badge"></span>
+      </div>
+      <form id="dayForm" autocomplete="off">
+        <div class="fields">
+          <div>
+            <label for="fPatients">Nombre de patients</label>
+            <input id="fPatients" type="number" inputmode="numeric" min="0" step="1" placeholder="ex. 18">
+          </div>
+          <div>
+            <label for="fRecettes">Recettes du jour</label>
+            <div class="unit"><input id="fRecettes" type="text" inputmode="decimal" placeholder="ex. 540,00"><span>€</span></div>
+          </div>
+        </div>
+        <div class="hint" id="dayHint"></div>
+        <div class="actions">
+          <button class="btn" type="submit">Enregistrer ce jour</button>
+          <button class="btn danger" type="button" id="delDay" hidden>Retirer ce jour</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ BILAN ============ -->
+  <section id="tab-bilan" style="display:none;gap:16px">
+    <div class="card no-print">
+      <div class="bilan-bar">
+        <div>
+          <label for="bilanMonth">Mois du bilan</label>
+          <input id="bilanMonth" type="month">
+        </div>
+        <span id="sentBadge" class="badge" hidden></span>
+      </div>
+    </div>
+
+    <div class="doc" id="reportDoc"></div>
+
+    <div class="card no-print sendbox">
+      <h2>Contrôle et envoi</h2>
+      <label class="check"><input type="checkbox" id="chkControl"> J'ai contrôlé ce bilan : jours, patients, recettes et % de charges sont corrects.</label>
+      <div class="mailinfo" id="mailInfo"></div>
+      <div class="actions" style="margin-top:0">
+        <button class="btn" id="btnSend" disabled>✉ Envoyer par e-mail</button>
+        <button class="btn ghost" id="btnPdf">⬇ Télécharger le PDF</button>
+        <button class="btn ghost" id="btnPrint">🖨 Imprimer</button>
+        <button class="btn ghost" id="btnCopy">Copier le texte</button>
+      </div>
+      <div class="sendlog" id="sendLog"></div>
+      <div class="hpay" style="border-top:1px solid var(--line);padding-top:12px">
+        <label class="check" style="align-items:center"><input type="checkbox" id="chkPaid"> Bilan payé</label>
+        <span class="mailinfo" id="paidInfo"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HISTORIQUE ============ -->
+  <section id="tab-historique" style="display:none;gap:16px">
+    <div class="card">
+      <h2>Historique des bilans</h2>
+      <div class="month-strip" id="histSum"></div>
+      <div id="histList"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ RÉGLAGES ============ -->
+<dialog id="dlgSettings">
+  <form id="settingsForm" autocomplete="off">
+    <h2>Réglages</h2>
+    <div>
+      <label for="sCabinet">Nom du cabinet</label>
+      <input id="sCabinet" type="text" placeholder="Cabinet MBS">
+    </div>
+    <div>
+      <label for="sDoctor">Nom du médecin (signature du mail)</label>
+      <input id="sDoctor" type="text" placeholder="Dr MBS">
+    </div>
+    <div>
+      <label for="sPct">% de charges du cabinet à déduire</label>
+      <div class="unit"><input id="sPct" type="text" inputmode="decimal" placeholder="ex. 35"><span>%</span></div>
+    </div>
+    <div>
+      <label for="sMe">Mon e-mail (reçoit une copie du bilan)</label>
+      <input id="sMe" type="email" placeholder="docteur@exemple.fr">
+    </div>
+    <div>
+      <label for="sDest">E-mail du destinataire (comptable…)</label>
+      <input id="sDest" type="email" placeholder="comptable@exemple.fr">
+    </div>
+    <div class="actions" style="margin-top:0">
+      <button class="btn" type="submit">Enregistrer</button>
+      <button class="btn ghost" type="button" id="sCancel">Annuler</button>
+      <button class="btn ghost" type="button" id="sExport" style="margin-left:auto">Exporter (JSON)</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="loginOverlay" hidden>
+  <form id="loginForm" class="loginbox" autocomplete="on">
+    <div class="logo" style="color:#fff">✚</div>
+    <h2>Cabinet-MBS</h2>
+    <p>Connexion réservée au médecin</p>
+    <div>
+      <label for="lEmail">E-mail</label>
+      <input id="lEmail" type="email" autocomplete="username" required>
+    </div>
+    <div>
+      <label for="lPass">Mot de passe</label>
+      <input id="lPass" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="lerr" id="lErr" role="alert"></div>
+    <button class="btn" type="submit" id="lSubmit">Se connecter</button>
+    <button class="btn ghost small" type="button" id="lReset">Mot de passe oublié</button>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+/* =====================================================================
+   CABINET-MBS — v1
+   ---------------------------------------------------------------------
+   Sans configuration : mode local (données dans le navigateur, envoi par mailto).
+   Avec FIREBASE_CONFIG renseigné : connexion obligatoire (Firebase Auth),
+   données dans Firestore, envoi automatique du PDF via un script Google Apps Script (MAIL_ENDPOINT).
+   Voir INSTALLATION.md et firestore.rules.
+   Structure Firestore :
+     cabinets/{CABINET_ID}/days/{YYYY-MM-DD}   -> { patients, recettes, updatedAt }
+     cabinets/{CABINET_ID}/settings/main       -> réglages
+     cabinets/{CABINET_ID}/reports/{YYYY-MM}   -> { sentAt, to, brut, net }
+   IMPORTANT : publier les règles de firestore.rules (accès limité au seul UID du médecin).
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB7_hGIrKs4Sxn036n6kG8vlnDdrIDvX-Q",
+  authDomain: "cabinet-mbs.firebaseapp.com",
+  projectId: "cabinet-mbs",
+  storageBucket: "cabinet-mbs.firebasestorage.app",
+  messagingSenderId: "241359404442",
+  appId: "1:241359404442:web:2e0a0b564cf59d58fd4e23"
+};
+const CABINET_ID = "mbs";
+const MAIL_ENDPOINT = "https://script.google.com/macros/s/AKfycbxy3CZFqxfN5uXF4Fe2txtl4qa474G-rdR5ddxAVBLFvCZKTPtN2qHef7T8wNC2nFTY3Q/exec";   // URL du script Google Apps Script d'envoi (voir INSTALLATION.md), se termine par /exec
+
+/* ---------- utilitaires ---------- */
+const $ = s => document.querySelector(s);
+const eur = new Intl.NumberFormat('fr-FR', {style:'currency', currency:'EUR'});
+const nf  = new Intl.NumberFormat('fr-FR');
+const pad = n => String(n).padStart(2,'0');
+const iso = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;           // m = 0..11
+const parseISO = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
+const todayISO = () => { const t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const monthLabel = ym => cap(new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'}));
+const dayLabel = d => cap(parseISO(d).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const plain = s => s.replace(/[\u202f\u00a0]/g, ' ');            // espaces insécables -> espace simple (mails)
+const parseNum = v => parseFloat(String(v).replace(/\s/g,'').replace(',', '.'));
+const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+let toastTimer;
+function toast(msg, err=false){
+  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.className = '', 2800);
+}
+
+/* ---------- couche de stockage ---------- */
+const LocalStore = {
+  label: 'données sur cet appareil',
+  _get(k, d){ try { return JSON.parse(localStorage.getItem('mbs_'+k)) ?? d; } catch { return d; } },
+  _set(k, v){ localStorage.setItem('mbs_'+k, JSON.stringify(v)); },
+  async loadDays(){ return this._get('days', {}); },
+  async saveDay(date, d){ const a = this._get('days', {}); a[date] = d; this._set('days', a); },
+  async deleteDay(date){ const a = this._get('days', {}); delete a[date]; this._set('days', a); },
+  async loadSettings(){ return this._get('settings', {}); },
+  async saveSettings(s){ this._set('settings', s); },
+  async loadReports(){ return this._get('reports', {}); },
+  async saveReport(ym, r){ const a = this._get('reports', {}); a[ym] = r; this._set('reports', a); }
+};
+
+async function createFirestoreStore(cfg){
+  const V = '10.14.1';
+  const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+  const au = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
+  const app = initializeApp(cfg);
+  const db = fs.getFirestore(app), fbAuth = au.getAuth(app);
+  const colDocs = async name => { const o = {}; (await fs.getDocs(fs.collection(db,'cabinets',CABINET_ID,name))).forEach(d => o[d.id] = d.data()); return o; };
+  const ref = (name,id) => fs.doc(db,'cabinets',CABINET_ID,name,id);
+  const store = {
+    label: 'Firestore',
+    loadDays: () => colDocs('days'),
+    saveDay: (date,d) => fs.setDoc(ref('days',date), d),
+    deleteDay: date => fs.deleteDoc(ref('days',date)),
+    async loadSettings(){ const s = await fs.getDoc(ref('settings','main')); return s.exists() ? s.data() : {}; },
+    saveSettings: s => fs.setDoc(ref('settings','main'), s),
+    loadReports: () => colDocs('reports'),
+    saveReport: (ym,r) => fs.setDoc(ref('reports',ym), r)
+  };
+  const auth = {
+    onChange: cb => au.onAuthStateChanged(fbAuth, cb),
+    signIn: (email, pw) => au.signInWithEmailAndPassword(fbAuth, email, pw),
+    signOut: () => au.signOut(fbAuth),
+    reset: email => au.sendPasswordResetEmail(fbAuth, email),
+    getToken: () => fbAuth.currentUser ? fbAuth.currentUser.getIdToken() : null
+  };
+  return {store, auth};
+}
+
+/* ---------- état ---------- */
+const state = {
+  store: LocalStore, auth: null, user: null,
+  days: {}, settings: {}, reports: {},
+  view: (() => { const t = new Date(); return {y:t.getFullYear(), m:t.getMonth()}; })(),
+  selected: todayISO(),
+  bilanMonth: null
+};
+
+/* ---------- calendrier ---------- */
+function renderCalendar(){
+  const {y,m} = state.view;
+  $('#calTitle').textContent = cap(new Date(y,m,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'}));
+  const first = new Date(y,m,1);
+  const offset = (first.getDay() + 6) % 7;                         // lundi = 0
+  const nbDays = new Date(y,m+1,0).getDate();
+  const today = todayISO();
+  let html = '';
+  for(let i=0;i<offset;i++) html += '<div class="day empty"></div>';
+  for(let d=1; d<=nbDays; d++){
+    const key = iso(y,m,d);
+    const dow = (offset + d - 1) % 7;
+    const rec = state.days[key];
+    const cls = ['day', dow>=5?'weekend':'', rec?'worked':'', key===today?'today':'', key===state.selected?'selected':''].filter(Boolean).join(' ');
+    html += `<button type="button" class="${cls}" data-date="${key}" aria-label="${esc(dayLabel(key))}">${d}${rec ? `<small>${nf.format(Math.round(rec.recettes))} €</small>` : ''}</button>`;
+  }
+  $('#calGrid').innerHTML = html;
+
+  const r = computeReport(`${y}-${pad(m+1)}`);
+  $('#monthStrip').innerHTML = r.jours
+    ? `<span><b>${r.jours}</b> jour${r.jours>1?'s':''} travaillé${r.jours>1?'s':''}</span><span><b>${nf.format(r.patients)}</b> patients</span><span>Recettes : <b>${eur.format(r.brut)}</b></span>`
+    : `<span>Aucun jour renseigné ce mois-ci. Touchez un jour pour commencer.</span>`;
+}
+
+function renderDayPanel(){
+  const key = state.selected, rec = state.days[key];
+  $('#dayTitle').textContent = dayLabel(key);
+  const b = $('#dayBadge');
+  b.textContent = rec ? 'Jour travaillé' : 'Non renseigné';
+  b.className = 'badge' + (rec ? ' ok' : '');
+  $('#fPatients').value = rec ? rec.patients : '';
+  $('#fRecettes').value = rec ? String(rec.recettes).replace('.', ',') : '';
+  $('#delDay').hidden = !rec;
+  updateHint();
+}
+function updateHint(){
+  const p = parseInt($('#fPatients').value,10), r = parseNum($('#fRecettes').value);
+  $('#dayHint').textContent = (p > 0 && isFinite(r)) ? `Recette moyenne par patient : ${eur.format(r/p)}` : 'Enregistrer ce jour le compte comme « travaillé » dans le bilan du mois.';
+}
+
+/* ---------- bilan ---------- */
+function computeReport(ym){
+  const rows = Object.entries(state.days)
+    .filter(([d]) => d.startsWith(ym + '-'))
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([date,v]) => ({date, patients:v.patients, recettes:v.recettes}));
+  const brut = round2(rows.reduce((s,r)=> s + r.recettes, 0));
+  const patients = rows.reduce((s,r)=> s + r.patients, 0);
+  const pct = Number(state.settings.chargesPct) || 0;
+  const charges = round2(brut * pct / 100);
+  return {ym, rows, jours:rows.length, patients, brut, pct, charges, net: round2(brut - charges)};
+}
+
+function mailParts(rep){
+  const s = state.settings;
+  const cab = s.cabinetName || 'Cabinet MBS';
+  const subject = `Bilan ${monthLabel(rep.ym)} – ${cab}`;
+  const body = plain(
+`Bonjour,
+
+Voici le bilan de ${monthLabel(rep.ym).toLowerCase()} pour ${cab} :
+
+- Jours travaillés : ${rep.jours}
+- Nombre total de patients : ${nf.format(rep.patients)}
+- Recettes du mois : ${eur.format(rep.brut)}
+- Charges du cabinet (${nf.format(rep.pct)} %) : − ${eur.format(rep.charges)}
+- Recettes nettes : ${eur.format(rep.net)}
+${state.auth && MAIL_ENDPOINT ? '\nLe détail jour par jour figure dans le PDF joint.\n' : ''}
+Cordialement,
+${s.doctorName || ''}`);
+  return {subject, body};
+}
+
+function renderReport(keepControl=false){
+  const ym = state.bilanMonth, rep = computeReport(ym), s = state.settings;
+  const cab = s.cabinetName || 'Cabinet MBS';
+  const detail = rep.rows.map(r => `<tr><td>${esc(cap(parseISO(r.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})))}</td><td>${r.patients}</td><td>${eur.format(r.recettes)}</td></tr>`).join('');
+  $('#reportDoc').innerHTML = `
+    <h3>Bilan mensuel – ${esc(monthLabel(ym))}</h3>
+    <p class="sub">${esc(cab)}${s.doctorName ? ' · ' + esc(s.doctorName) : ''}</p>
+    ${rep.jours ? `
+    <table class="kv">
+      <tr><td>Jours travaillés</td><td>${rep.jours}</td></tr>
+      <tr><td>Nombre total de patients</td><td>${nf.format(rep.patients)}</td></tr>
+      <tr><td>Recettes du mois</td><td>${eur.format(rep.brut)}</td></tr>
+      <tr><td>Charges du cabinet (${nf.format(rep.pct)} %)</td><td>− ${eur.format(rep.charges)}</td></tr>
+      <tr class="total"><td>Recettes nettes totales</td><td>${eur.format(rep.net)}</td></tr>
+    </table>
+    <details class="detail" open>
+      <summary>Détail par jour</summary>
+      <table><thead><tr><th>Jour</th><th>Patients</th><th>Recettes</th></tr></thead><tbody>${detail}</tbody></table>
+    </details>` : `<p style="color:var(--muted)">Aucun jour renseigné pour ce mois.</p>`}
+    <p style="font-size:.75rem;color:var(--muted);margin-top:22px">Document généré le ${new Date().toLocaleDateString('fr-FR')} avec Cabinet-MBS.</p>`;
+
+  const rp = getReport(ym), sb = $('#sentBadge'), sm = sendSummary(rp);
+  sb.hidden = !rp.sends.length;
+  if(rp.sends.length){ sb.className = 'badge ' + sm.cls; sb.textContent = sm.text; }
+  $('#chkPaid').checked = rp.paid;
+  $('#paidInfo').textContent = rp.paid && rp.paidAt ? 'Payé le ' + new Date(rp.paidAt).toLocaleDateString('fr-FR') : '';
+  $('#sendLog').innerHTML = rp.sends.length
+    ? '<b>Historique des envois</b><ul>' + rp.sends.slice().reverse().map(x =>
+        `<li>${esc(fmtDT(x.sentAt))} → ${esc(x.to || '')}${x.net != null ? ' · net ' + esc(eur.format(x.net)) : ''} · ${esc(sendStatus(x))}</li>`).join('') + '</ul>'
+    : '';
+
+  if(!keepControl) $('#chkControl').checked = false;
+  $('#mailInfo').innerHTML = (s.emailDest && s.emailMe)
+    ? `À : <b>${esc(s.emailDest)}</b> · Copie : <b>${esc(s.emailMe)}</b> · ` + (state.auth && MAIL_ENDPOINT ? 'PDF joint, envoi automatique' : "envoi non configuré : ouvre votre messagerie (sans PDF)")
+    : `⚠ Renseignez les deux adresses e-mail dans les réglages pour activer l'envoi.`;
+  updateSendBtn();
+}
+function updateSendBtn(){
+  const s = state.settings, rep = computeReport(state.bilanMonth);
+  $('#btnSend').disabled = !($('#chkControl').checked && rep.jours && s.emailDest && s.emailMe);
+}
+
+/* ---------- navigation ---------- */
+function showTab(name){
+  $('#tab-saisie').style.display = name === 'saisie' ? 'grid' : 'none';
+  $('#tab-bilan').style.display  = name === 'bilan'  ? 'grid' : 'none';
+  $('#tab-historique').style.display = name === 'historique' ? 'grid' : 'none';
+  document.querySelectorAll('nav [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if(name === 'bilan'){
+    if(!state.bilanMonth) state.bilanMonth = `${state.view.y}-${pad(state.view.m+1)}`;
+    $('#bilanMonth').value = state.bilanMonth;
+    renderReport();
+  }
+  if(name === 'historique') renderHistory();
+}
+function refreshBanner(){
+  const s = state.settings;
+  $('#setupBanner').hidden = !!(s.updatedAt && s.emailMe && s.emailDest && s.chargesPct != null);
+}
+
+/* ---------- événements ---------- */
+document.querySelectorAll('nav [data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+$('#dows').innerHTML = ['L','M','M','J','V','S','D'].map(d => `<div class="dow">${d}</div>`).join('');
+$('#prevM').onclick = () => { const v = state.view; state.view = v.m === 0 ? {y:v.y-1, m:11} : {y:v.y, m:v.m-1}; renderCalendar(); };
+$('#nextM').onclick = () => { const v = state.view; state.view = v.m === 11 ? {y:v.y+1, m:0} : {y:v.y, m:v.m+1}; renderCalendar(); };
+$('#todayBtn').onclick = () => { const t = new Date(); state.view = {y:t.getFullYear(), m:t.getMonth()}; state.selected = todayISO(); renderCalendar(); renderDayPanel(); };
+
+$('#calGrid').addEventListener('click', e => {
+  const b = e.target.closest('[data-date]'); if(!b) return;
+  state.selected = b.dataset.date; renderCalendar(); renderDayPanel();
+  $('#dayTitle').scrollIntoView({behavior:'smooth', block:'nearest'});
+});
+$('#fPatients').addEventListener('input', updateHint);
+$('#fRecettes').addEventListener('input', updateHint);
+
+$('#dayForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const patients = parseInt($('#fPatients').value, 10);
+  const rec = parseNum($('#fRecettes').value);
+  if(!Number.isInteger(patients) || patients < 0) return toast('Nombre de patients invalide.', true);
+  if(!isFinite(rec) || rec < 0) return toast('Montant des recettes invalide.', true);
+  const data = {patients, recettes: round2(rec), updatedAt: Date.now()};
+  try {
+    await state.store.saveDay(state.selected, data);
+    state.days[state.selected] = data;
+    renderCalendar(); renderDayPanel(); toast('Jour enregistré ✔');
+  } catch(err){ console.error(err); toast("Échec de l'enregistrement.", true); }
+});
+
+$('#delDay').onclick = async () => {
+  if(!confirm('Retirer ce jour du calendrier ?')) return;
+  try {
+    await state.store.deleteDay(state.selected);
+    delete state.days[state.selected];
+    renderCalendar(); renderDayPanel(); toast('Jour retiré.');
+  } catch(err){ console.error(err); toast('Échec de la suppression.', true); }
+};
+
+$('#bilanMonth').addEventListener('change', e => { if(e.target.value){ state.bilanMonth = e.target.value; renderReport(); } });
+$('#chkControl').addEventListener('change', updateSendBtn);
+$('#btnPrint').onclick = () => window.print();
+$('#btnCopy').onclick = async () => {
+  const {subject, body} = mailParts(computeReport(state.bilanMonth));
+  try { await navigator.clipboard.writeText(subject + '\n\n' + body); toast('Texte copié ✔'); }
+  catch { toast('Copie impossible sur ce navigateur.', true); }
+};
+
+function sendViaMailto(){
+  const s = state.settings, rep = computeReport(state.bilanMonth), {subject, body} = mailParts(rep);
+  const url = `mailto:${s.emailDest}?cc=${encodeURIComponent(s.emailMe)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = url;
+  setTimeout(async () => {
+    if(confirm("Le message s'ouvre dans votre messagerie.\nL'avez-vous envoyé ?\n\nOK = enregistrer cet envoi dans l'historique")){
+      const prev = getReport(state.bilanMonth);
+      const r = {...prev, sends: [...prev.sends, {sentAt: Date.now(), to: s.emailDest, cc: s.emailMe, jours: rep.jours, patients: rep.patients, brut: rep.brut, pct: rep.pct, net: rep.net}]};
+      try { await persistReport(state.bilanMonth, r); renderReport(); toast("Envoi enregistré dans l'historique ✔"); }
+      catch(err){ console.error(err); toast("Statut d'envoi non enregistré.", true); }
+    }
+  }, 900);
+}
+
+/* historique des envois + paiement */
+const fmtDT = t => new Date(t).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'});
+function normReport(r){
+  r = r || {};
+  const sends = Array.isArray(r.sends) ? r.sends.slice()
+    : (r.sentAt ? [{sentAt: r.sentAt, to: r.to, brut: r.brut, net: r.net}] : []);   // ancien format
+  return {sends, paid: !!r.paid, paidAt: r.paidAt || null};
+}
+const getReport = ym => normReport(state.reports[ym]);
+async function persistReport(ym, r){
+  const clean = JSON.parse(JSON.stringify(r));                                       // retire les undefined (Firestore)
+  await state.store.saveReport(ym, clean);
+  state.reports[ym] = clean;
+}
+async function setPaid(ym, paid){
+  if(!paid && !confirm(`Retirer le statut « payé » pour ${monthLabel(ym)} ?`)) return;
+  try {
+    await persistReport(ym, {...getReport(ym), paid, paidAt: paid ? Date.now() : null});
+    toast(paid ? 'Marqué comme payé ✔' : 'Statut « payé » retiré.');
+  } catch(err){ console.error(err); toast("Échec de l'enregistrement.", true); }
+}
+$('#chkPaid').addEventListener('change', async e => { await setPaid(state.bilanMonth, e.target.checked); renderReport(true); });
+
+function renderHistory(){
+  const months = new Set([...Object.keys(state.days).map(d => d.slice(0,7)), ...Object.keys(state.reports)]);
+  const list = [...months].sort().reverse();
+  let paidSum = 0, pendingSum = 0;
+  const rows = list.map(ym => {
+    const rep = computeReport(ym), rp = getReport(ym), last = rp.sends.filter(x => x.status !== 'error').pop();
+    const net = last && last.net != null ? last.net : rep.net;
+    if(rp.paid) paidSum += net; else if(last) pendingSum += net;
+    const changed = last && last.net != null && Math.abs(last.net - rep.net) > 0.005;
+    const sm = sendSummary(rp);
+    const sentBadge = rp.sends.length ? `<span class="badge ${sm.cls}">${esc(sm.text)}</span>` : `<span class="badge">Non envoyé</span>`;
+    return `<div class="hrow">
+      <div class="hmain">
+        <b>${esc(monthLabel(ym))}</b> ${sentBadge} ${rp.paid ? '<span class="badge paid">Payé</span>' : ''}
+        ${changed ? '<span class="badge warn">Chiffres modifiés depuis le dernier envoi</span>' : ''}
+        <span class="hnums">${rep.jours} jour${rep.jours > 1 ? 's' : ''} · ${nf.format(rep.patients)} patients · recettes ${eur.format(rep.brut)} · net ${eur.format(rep.net)}</span>
+        ${rp.sends.length ? `<details><summary>Dates d'envoi (${rp.sends.length})</summary><ul>${
+          rp.sends.slice().reverse().map(x => `<li>${esc(fmtDT(x.sentAt))} → ${esc(x.to || '')}${x.net != null ? ' · net envoyé ' + esc(eur.format(x.net)) : ''} · ${esc(sendStatus(x))}</li>`).join('')
+        }</ul></details>` : ''}
+      </div>
+      <div class="hpay">
+        <label class="check" style="align-items:center"><input type="checkbox" data-paid="${ym}" ${rp.paid ? 'checked' : ''}> Payé</label>
+        ${rp.paid && rp.paidAt ? `<small>le ${new Date(rp.paidAt).toLocaleDateString('fr-FR')}</small>` : ''}
+        <button class="btn ghost small" data-open="${ym}">Ouvrir</button>
+      </div>
+    </div>`;
+  });
+  $('#histSum').innerHTML = `<span>Net payé : <b>${eur.format(round2(paidSum))}</b></span><span>Envoyé, en attente de paiement : <b>${eur.format(round2(pendingSum))}</b></span>`;
+  $('#histList').innerHTML = rows.length ? rows.join('') : '<p style="color:var(--muted)">Aucun mois pour l\'instant.</p>';
+}
+$('#histList').addEventListener('change', async e => {
+  const c = e.target.closest('[data-paid]'); if(!c) return;
+  await setPaid(c.dataset.paid, c.checked); renderHistory();
+});
+$('#histList').addEventListener('click', e => {
+  const b = e.target.closest('[data-open]'); if(!b) return;
+  state.bilanMonth = b.dataset.open; showTab('bilan');
+});
+
+/* ---------- statut des envois ---------- */
+const sendStatus = x => x.status === 'pending' ? 'envoi en cours'
+  : x.status === 'error' ? 'échec' + (x.error ? ' (' + x.error + ')' : '') : 'envoyé ✔';
+function sendSummary(rp){
+  const ok = rp.sends.filter(x => !x.status || x.status === 'sent');
+  const pend = rp.sends.filter(x => x.status === 'pending');
+  if(ok.length){
+    const last = ok[ok.length - 1];
+    return {cls:'sent', text: ok.length > 1 ? `Envoyé ${ok.length} fois · dernier envoi le ${fmtDT(last.sentAt)}` : `Envoyé le ${fmtDT(last.sentAt)}`};
+  }
+  if(pend.length) return {cls:'warn', text:'Envoi en cours…'};
+  return {cls:'warn', text:"Échec de l'envoi"};
+}
+/* ---------- PDF du bilan ---------- */
+/* PDF-BEGIN */
+function buildPdf(jsPDF, rep, s){
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const W = 210, M = 18, R = W - M, footerY = 289;
+  const brand = [15,118,110], ink = [22,41,58], muted = [107,124,138], rule = [221,229,234];
+  const money = n => plain(eur.format(n));
+  const color = c => doc.setTextColor(c[0], c[1], c[2]);
+  const hr = (yy, c = rule, w = 0.3) => { doc.setDrawColor(c[0], c[1], c[2]); doc.setLineWidth(w); doc.line(M, yy, R, yy); };
+  const font = (style, size) => { doc.setFont('helvetica', style); doc.setFontSize(size); };
+
+  // Bandeau
+  doc.setFillColor(brand[0], brand[1], brand[2]); doc.rect(0, 0, W, 34, 'F');
+  doc.setTextColor(255, 255, 255);
+  font('bold', 20); doc.text(plain(s.cabinetName || 'Cabinet MBS'), M, 15);
+  font('normal', 12); doc.text('Bilan mensuel - ' + plain(monthLabel(rep.ym)), M, 24);
+  if(s.doctorName){ font('normal', 10); doc.text(plain(s.doctorName), R, 15, {align:'right'}); }
+
+  // Synthèse
+  let y = 50;
+  color(ink); font('bold', 13); doc.text('Synthèse du mois', M, y);
+  y += 4; hr(y, ink, 0.6);
+  const lines = [
+    ['Jours travaillés', String(rep.jours)],
+    ['Nombre total de patients', nf.format(rep.patients)],
+    ['Recettes du mois', money(rep.brut)],
+    [`Charges du cabinet (${nf.format(rep.pct)} %)`, '- ' + money(rep.charges)]
+  ];
+  lines.forEach(([k, v]) => {
+    y += 9; color(ink);
+    font('normal', 11); doc.text(plain(k), M, y);
+    font('bold', 11);   doc.text(plain(v), R, y, {align:'right'});
+    hr(y + 3);
+  });
+  y += 14;
+  doc.setFillColor(217, 240, 237); doc.roundedRect(M - 2, y - 8, R - M + 4, 14, 2, 2, 'F');
+  color(brand); font('bold', 13);
+  doc.text('Recettes nettes totales', M + 2, y + 1);
+  doc.text(money(rep.net), R - 2, y + 1, {align:'right'});
+
+  // Détail par jour
+  y += 22;
+  color(ink); font('bold', 13); doc.text('Détail par jour', M, y);
+  y += 8;
+  const head = () => {
+    doc.setFillColor(243, 248, 247); doc.rect(M, y - 5, R - M, 8, 'F');
+    color(muted); font('bold', 9);
+    doc.text('JOUR', M + 2, y);
+    doc.text('PATIENTS', 135, y, {align:'right'});
+    doc.text('RECETTES', R - 2, y, {align:'right'});
+    y += 8;
+  };
+  head();
+  rep.rows.forEach((r, i) => {
+    if(y > footerY - 14){ doc.addPage(); y = 22; head(); }
+    if(i % 2){ doc.setFillColor(250, 252, 252); doc.rect(M, y - 5, R - M, 7, 'F'); }
+    color(ink); font('normal', 10);
+    doc.text(plain(cap(parseISO(r.date).toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'}))), M + 2, y);
+    doc.text(String(r.patients), 135, y, {align:'right'});
+    doc.text(money(r.recettes), R - 2, y, {align:'right'});
+    y += 7;
+  });
+  if(y > footerY - 14){ doc.addPage(); y = 22; }
+  hr(y - 4, ink, 0.5); y += 2;
+  color(ink); font('bold', 10);
+  doc.text('Total', M + 2, y);
+  doc.text(nf.format(rep.patients), 135, y, {align:'right'});
+  doc.text(money(rep.brut), R - 2, y, {align:'right'});
+
+  // Pied de page
+  const n = doc.getNumberOfPages();
+  for(let i = 1; i <= n; i++){
+    doc.setPage(i); color(muted); font('normal', 8);
+    doc.text('Cabinet-MBS - généré le ' + new Date().toLocaleDateString('fr-FR'), M, footerY + 4);
+    doc.text(`Page ${i}/${n}`, R, footerY + 4, {align:'right'});
+  }
+  return doc;
+}
+/* PDF-END */
+
+const pdfName = (rep, s) => `Bilan-${(s.cabinetName || 'Cabinet-MBS').replace(/[^A-Za-z0-9]+/g, '-')}-${rep.ym}.pdf`;
+function makePdf(rep){
+  if(!window.jspdf) throw new Error('Bibliothèque PDF non chargée (connexion internet ?)');
+  return buildPdf(window.jspdf.jsPDF, rep, state.settings);
+}
+$('#btnPdf').onclick = () => {
+  try {
+    const rep = computeReport(state.bilanMonth);
+    if(!rep.jours) return toast('Aucun jour renseigné pour ce mois.', true);
+    makePdf(rep).save(pdfName(rep, state.settings));
+  } catch(err){ console.error(err); toast(err.message, true); }
+};
+
+/* ---------- envoi ---------- */
+$('#btnSend').onclick = async () => {
+  if(!state.auth || !MAIL_ENDPOINT) return sendViaMailto();   // mode local ou URL d'envoi non configurée
+  const s = state.settings, ym = state.bilanMonth, rep = computeReport(ym), {subject, body} = mailParts(rep);
+  const btn = $('#btnSend'); btn.disabled = true; btn.textContent = 'Envoi en cours…';
+  try {
+    const pdfBase64 = makePdf(rep).output('datauristring').split('base64,')[1];
+    if(!pdfBase64) throw new Error('PDF vide.');
+    const idToken = await state.auth.getToken();
+    const resp = await fetch(MAIL_ENDPOINT, {
+      method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify({idToken, to: s.emailDest, cc: s.emailMe, subject, body, filename: pdfName(rep, s), pdfBase64})
+    });
+    const out = await resp.json();
+    if(!out.ok) throw new Error(out.error || "Refusé par le service d'envoi.");
+    const prev = getReport(ym);
+    await persistReport(ym, {...prev, sends: [...prev.sends, {
+      sentAt: Date.now(), to: s.emailDest, cc: s.emailMe, jours: rep.jours, patients: rep.patients,
+      brut: rep.brut, pct: rep.pct, net: rep.net, status: 'sent'
+    }]});
+    renderReport(); toast('E-mail envoyé ✔');
+  } catch(err){
+    console.error(err);
+    toast(err instanceof TypeError
+      ? "Réponse du service d'envoi illisible (réseau ou URL). Vérifiez votre dossier Envoyés avant de recommencer."
+      : "Envoi impossible : " + err.message, true);
+  } finally {
+    btn.textContent = '✉ Envoyer par e-mail'; updateSendBtn();
+  }
+};
+
+/* ---------- connexion ---------- */
+const loginErrors = {
+  'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
+  'auth/wrong-password': 'E-mail ou mot de passe incorrect.',
+  'auth/user-not-found': 'E-mail ou mot de passe incorrect.',
+  'auth/invalid-email': 'Adresse e-mail invalide.',
+  'auth/too-many-requests': 'Trop de tentatives. Réessayez dans quelques minutes.',
+  'auth/network-request-failed': 'Réseau indisponible.'
+};
+const showLogin = on => { $('#loginOverlay').hidden = !on; $('#btnLogout').hidden = on; if(on) $('#lPass').value = ''; };
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('#lErr').style.color = ''; $('#lErr').textContent = ''; $('#lSubmit').disabled = true;
+  try { await state.auth.signIn($('#lEmail').value.trim(), $('#lPass').value); }
+  catch(err){ $('#lErr').textContent = loginErrors[err.code] || 'Connexion impossible (' + (err.code || err.message) + ').'; }
+  $('#lSubmit').disabled = false;
+});
+$('#lReset').onclick = async () => {
+  const email = $('#lEmail').value.trim();
+  if(!emailOk(email)) { $('#lErr').textContent = "Saisissez d'abord votre e-mail ci-dessus."; return; }
+  try { await state.auth.reset(email); $('#lErr').style.color = 'var(--ok)'; $('#lErr').textContent = 'Si ce compte existe, un e-mail de réinitialisation vient d\'être envoyé.'; }
+  catch(err){ $('#lErr').style.color = ''; $('#lErr').textContent = loginErrors[err.code] || 'Envoi impossible.'; }
+};
+$('#btnLogout').onclick = () => state.auth && state.auth.signOut();
+
+/* réglages */
+const dlg = $('#dlgSettings');
+function openSettings(){
+  const s = state.settings;
+  $('#sCabinet').value = s.cabinetName ?? 'Cabinet MBS';
+  $('#sDoctor').value = s.doctorName ?? '';
+  $('#sPct').value = s.chargesPct != null ? String(s.chargesPct).replace('.', ',') : '';
+  $('#sMe').value = s.emailMe ?? '';
+  $('#sDest').value = s.emailDest ?? '';
+  dlg.showModal();
+}
+$('#btnSettings').onclick = openSettings;
+$('#bannerSettings').onclick = openSettings;
+$('#sCancel').onclick = () => dlg.close();
+$('#settingsForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pct = parseNum($('#sPct').value);
+  const me = $('#sMe').value.trim(), dest = $('#sDest').value.trim();
+  if(!isFinite(pct) || pct < 0 || pct > 100) return toast('Le % de charges doit être entre 0 et 100.', true);
+  if(me && !emailOk(me)) return toast('Votre e-mail est invalide.', true);
+  if(dest && !emailOk(dest)) return toast("L'e-mail du destinataire est invalide.", true);
+  const s = {cabinetName: $('#sCabinet').value.trim() || 'Cabinet MBS', doctorName: $('#sDoctor').value.trim(),
+             chargesPct: pct, emailMe: me, emailDest: dest, updatedAt: Date.now()};
+  try {
+    await state.store.saveSettings(s); state.settings = s;
+    dlg.close(); refreshBanner(); renderCalendar();
+    if($('#tab-bilan').style.display !== 'none') renderReport();
+    toast('Réglages enregistrés ✔');
+  } catch(err){ console.error(err); toast("Échec de l'enregistrement.", true); }
+});
+$('#sExport').onclick = () => {
+  const blob = new Blob([JSON.stringify({days:state.days, settings:state.settings, reports:state.reports}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `cabinet-mbs-sauvegarde-${todayISO()}.json`; a.click(); URL.revokeObjectURL(a.href);
+};
+
+/* ---------- démarrage ---------- */
+async function loadAll(){
+  try {
+    [state.days, state.settings, state.reports] = await Promise.all([state.store.loadDays(), state.store.loadSettings(), state.store.loadReports()]);
+  } catch(err){
+    console.error(err);
+    if(err.code === 'permission-denied' && state.auth){
+      $('#lErr').style.color = ''; $('#lErr').textContent = "Accès refusé : ce compte n'est pas autorisé.";
+      await state.auth.signOut(); return;
+    }
+    toast('Chargement des données impossible.', true);
+  }
+  refreshBanner(); renderCalendar(); renderDayPanel();
+}
+
+(async function init(){
+  const useFirebase = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId;
+  if(useFirebase){
+    try { const be = await createFirestoreStore(FIREBASE_CONFIG); state.store = be.store; state.auth = be.auth; }
+    catch(err){
+      // pas de repli silencieux en local : les données iraient au mauvais endroit
+      console.error(err); showLogin(true);
+      $('#lErr').textContent = 'Connexion à Firebase impossible. Vérifiez le réseau et la configuration, puis rechargez la page.';
+      $('#lSubmit').disabled = true; $('#lReset').disabled = true; return;
+    }
+  }
+  $('#storeLabel').textContent = state.store.label;
+  if(state.auth){
+    showLogin(true);
+    state.auth.onChange(async user => {
+      state.user = user;
+      if(user){ showLogin(false); await loadAll(); }
+      else { state.days = {}; state.settings = {}; state.reports = {}; showLogin(true); }
+    });
+  } else {
+    await loadAll();
+  }
+})();
+</script>
+</body>
+</html>
