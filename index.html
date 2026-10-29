@@ -61,7 +61,7 @@
   .day-title h2{margin:0}
   .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
-  input[type=text],input[type=number],input[type=email],input[type=month]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:1.05rem;background:#fff;color:var(--ink)}
+  input[type=text],input[type=number],input[type=email],input[type=month],input[type=password]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:1.05rem;background:#fff;color:var(--ink)}
   input:focus{outline:2px solid var(--brand);border-color:transparent}
   .unit{position:relative}
   .unit input{padding-right:34px}
@@ -276,10 +276,37 @@
       <label for="sDest">E-mail du destinataire (comptable…)</label>
       <input id="sDest" type="email" placeholder="comptable@exemple.fr">
     </div>
+    <div id="pwSection" hidden style="border-top:1px solid var(--line);padding-top:12px">
+      <label>Connexion</label>
+      <button class="btn ghost small" type="button" id="sPwd">🔑 Changer le mot de passe</button>
+    </div>
     <div class="actions" style="margin-top:0">
       <button class="btn" type="submit">Enregistrer</button>
       <button class="btn ghost" type="button" id="sCancel">Annuler</button>
       <button class="btn ghost" type="button" id="sExport" style="margin-left:auto">Exporter (JSON)</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPwd">
+  <form id="pwdForm" autocomplete="off">
+    <h2>Changer le mot de passe</h2>
+    <div>
+      <label for="pOld">Mot de passe actuel</label>
+      <input id="pOld" type="password" autocomplete="current-password" required>
+    </div>
+    <div>
+      <label for="pNew">Nouveau mot de passe (8 caractères minimum)</label>
+      <input id="pNew" type="password" autocomplete="new-password" minlength="8" required>
+    </div>
+    <div>
+      <label for="pNew2">Confirmer le nouveau mot de passe</label>
+      <input id="pNew2" type="password" autocomplete="new-password" minlength="8" required>
+    </div>
+    <div class="lerr" id="pErr" role="alert"></div>
+    <div class="actions" style="margin-top:0">
+      <button class="btn" type="submit" id="pSubmit">Changer le mot de passe</button>
+      <button class="btn ghost" type="button" id="pCancel">Annuler</button>
     </div>
   </form>
 </dialog>
@@ -391,7 +418,13 @@ async function createFirestoreStore(cfg){
     signIn: (email, pw) => au.signInWithEmailAndPassword(fbAuth, email, pw),
     signOut: () => au.signOut(fbAuth),
     reset: email => au.sendPasswordResetEmail(fbAuth, email),
-    getToken: () => fbAuth.currentUser ? fbAuth.currentUser.getIdToken() : null
+    getToken: () => fbAuth.currentUser ? fbAuth.currentUser.getIdToken() : null,
+    async changePassword(current, next){
+      const u = fbAuth.currentUser;
+      if(!u || !u.email) throw {code: 'auth/no-current-user'};
+      await au.reauthenticateWithCredential(u, au.EmailAuthProvider.credential(u.email, current));   // exige l'ancien mot de passe
+      await au.updatePassword(u, next);
+    }
   };
   return {store, auth};
 }
@@ -833,11 +866,45 @@ function openSettings(){
   $('#sPct').value = s.chargesPct != null ? String(s.chargesPct).replace('.', ',') : '';
   $('#sMe').value = s.emailMe ?? '';
   $('#sDest').value = s.emailDest ?? '';
+  $('#pwSection').hidden = !state.auth;
   dlg.showModal();
 }
 $('#btnSettings').onclick = openSettings;
 $('#bannerSettings').onclick = openSettings;
 $('#sCancel').onclick = () => dlg.close();
+
+/* changement de mot de passe */
+const pwdDlg = $('#dlgPwd');
+const pwdErrors = {
+  'auth/wrong-password': 'Le mot de passe actuel est incorrect.',
+  'auth/invalid-credential': 'Le mot de passe actuel est incorrect.',
+  'auth/weak-password': 'Nouveau mot de passe trop faible : choisissez-en un plus long.',
+  'auth/too-many-requests': 'Trop de tentatives. Réessayez dans quelques minutes.',
+  'auth/requires-recent-login': 'Session trop ancienne : déconnectez-vous, reconnectez-vous, puis réessayez.',
+  'auth/network-request-failed': 'Réseau indisponible.'
+};
+$('#sPwd').onclick = () => {
+  $('#pwdForm').reset(); $('#pErr').textContent = ''; $('#pErr').style.color = '';
+  dlg.close(); pwdDlg.showModal();
+};
+$('#pCancel').onclick = () => pwdDlg.close();
+$('#pwdForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = $('#pErr'); err.style.color = ''; err.textContent = '';
+  const cur = $('#pOld').value, nw = $('#pNew').value, nw2 = $('#pNew2').value;
+  if(nw.length < 8) return void (err.textContent = 'Le nouveau mot de passe doit faire au moins 8 caractères.');
+  if(nw !== nw2) return void (err.textContent = 'La confirmation ne correspond pas au nouveau mot de passe.');
+  if(nw === cur) return void (err.textContent = "Le nouveau mot de passe doit être différent de l'actuel.");
+  $('#pSubmit').disabled = true;
+  try {
+    await state.auth.changePassword(cur, nw);
+    $('#pwdForm').reset(); pwdDlg.close(); toast('Mot de passe modifié ✔');
+  } catch(ex){
+    console.error(ex);
+    err.textContent = pwdErrors[ex.code] || 'Modification impossible (' + (ex.code || ex.message) + ').';
+  }
+  $('#pSubmit').disabled = false;
+});
 $('#settingsForm').addEventListener('submit', async e => {
   e.preventDefault();
   const pct = parseNum($('#sPct').value);
