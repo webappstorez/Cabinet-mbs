@@ -48,6 +48,7 @@
   .day.weekend{background:#f6f8fa;color:#7d8c98}
   .day.worked{background:var(--brand-soft);border-color:#9fd4cd;font-weight:600}
   .day.today::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .day.nopat::before{content:"";position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;border:1.5px solid var(--accent)}
   .day.selected{outline:3px solid var(--brand);outline-offset:-1px}
   .day small{font-size:.66rem;color:var(--brand-dark);font-weight:500}
   .day.empty{visibility:hidden;cursor:default}
@@ -182,6 +183,7 @@
         <span><i style="background:var(--brand-soft);border-color:#9fd4cd"></i>Jour travaillé</span>
         <span><i style="background:#f6f8fa"></i>Week-end</span>
         <span><i style="background:var(--accent);border-radius:50%"></i>Aujourd'hui</span>
+        <span><i style="background:#fff;border:2px solid var(--accent);border-radius:50%"></i>Patients à compléter</span>
       </div>
     </div>
 
@@ -193,8 +195,8 @@
       <form id="dayForm" autocomplete="off">
         <div class="fields">
           <div>
-            <label for="fPatients">Nombre de patients</label>
-            <input id="fPatients" type="number" inputmode="numeric" min="0" step="1" placeholder="ex. 18">
+            <label for="fPatients">Nombre de patients <span style="color:var(--muted)">(facultatif)</span></label>
+            <input id="fPatients" type="number" inputmode="numeric" min="0" step="1" placeholder="à compléter plus tard">
           </div>
           <div>
             <label for="fRecettes">Recettes du jour</label>
@@ -341,7 +343,7 @@
    données dans Firestore, envoi automatique du PDF via un script Google Apps Script (MAIL_ENDPOINT).
    Voir INSTALLATION.md et firestore.rules.
    Structure Firestore :
-     cabinets/{CABINET_ID}/days/{YYYY-MM-DD}   -> { patients, recettes, updatedAt }
+     cabinets/{CABINET_ID}/days/{YYYY-MM-DD}   -> { patients (facultatif, null si absent), recettes, updatedAt }
      cabinets/{CABINET_ID}/settings/main       -> réglages
      cabinets/{CABINET_ID}/reports/{YYYY-MM}   -> { sentAt, to, brut, net }
    IMPORTANT : publier les règles de firestore.rules (accès limité au seul UID du médecin).
@@ -452,14 +454,14 @@ function renderCalendar(){
     const key = iso(y,m,d);
     const dow = (offset + d - 1) % 7;
     const rec = state.days[key];
-    const cls = ['day', dow>=5?'weekend':'', rec?'worked':'', key===today?'today':'', key===state.selected?'selected':''].filter(Boolean).join(' ');
+    const cls = ['day', dow>=5?'weekend':'', rec?'worked':'', rec && !hasPat(rec.patients) ? 'nopat' : '', key===today?'today':'', key===state.selected?'selected':''].filter(Boolean).join(' ');
     html += `<button type="button" class="${cls}" data-date="${key}" aria-label="${esc(dayLabel(key))}">${d}${rec ? `<small>${nf.format(Math.round(rec.recettes))} €</small>` : ''}</button>`;
   }
   $('#calGrid').innerHTML = html;
 
   const r = computeReport(`${y}-${pad(m+1)}`);
   $('#monthStrip').innerHTML = r.jours
-    ? `<span><b>${r.jours}</b> jour${r.jours>1?'s':''} travaillé${r.jours>1?'s':''}</span><span><b>${nf.format(r.patients)}</b> patients</span><span>Recettes : <b>${eur.format(r.brut)}</b></span>`
+    ? `<span><b>${r.jours}</b> jour${r.jours>1?'s':''} travaillé${r.jours>1?'s':''}</span><span>Patients : <b>${esc(patientsLabel(r))}</b></span><span>Recettes : <b>${eur.format(r.brut)}</b></span>`
     : `<span>Aucun jour renseigné ce mois-ci. Touchez un jour pour commencer.</span>`;
 }
 
@@ -467,16 +469,16 @@ function renderDayPanel(){
   const key = state.selected, rec = state.days[key];
   $('#dayTitle').textContent = dayLabel(key);
   const b = $('#dayBadge');
-  b.textContent = rec ? 'Jour travaillé' : 'Non renseigné';
+  b.textContent = rec ? (hasPat(rec.patients) ? 'Jour travaillé' : 'Jour travaillé · patients à compléter') : 'Non renseigné';
   b.className = 'badge' + (rec ? ' ok' : '');
-  $('#fPatients').value = rec ? rec.patients : '';
+  $('#fPatients').value = rec && hasPat(rec.patients) ? rec.patients : '';
   $('#fRecettes').value = rec ? String(rec.recettes).replace('.', ',') : '';
   $('#delDay').hidden = !rec;
   updateHint();
 }
 function updateHint(){
   const p = parseInt($('#fPatients').value,10), r = parseNum($('#fRecettes').value);
-  $('#dayHint').textContent = (p > 0 && isFinite(r)) ? `Recette moyenne par patient : ${eur.format(r/p)}` : 'Enregistrer ce jour le compte comme « travaillé » dans le bilan du mois.';
+  $('#dayHint').textContent = (p > 0 && isFinite(r)) ? `Recette moyenne par patient : ${eur.format(r/p)}` : 'Seules les recettes sont obligatoires : vous pourrez ajouter le nombre de patients plus tard en rouvrant ce jour.';
 }
 
 /* ---------- bilan ---------- */
@@ -484,12 +486,20 @@ function computeReport(ym){
   const rows = Object.entries(state.days)
     .filter(([d]) => d.startsWith(ym + '-'))
     .sort(([a],[b]) => a.localeCompare(b))
-    .map(([date,v]) => ({date, patients:v.patients, recettes:v.recettes}));
+    .map(([date,v]) => ({date, patients: hasPat(v.patients) ? v.patients : null, recettes:v.recettes}));
   const brut = round2(rows.reduce((s,r)=> s + r.recettes, 0));
-  const patients = rows.reduce((s,r)=> s + r.patients, 0);
+  const patients = rows.reduce((s,r)=> s + (hasPat(r.patients) ? r.patients : 0), 0);
+  const joursPat = rows.filter(r => hasPat(r.patients)).length;
   const pct = Number(state.settings.chargesPct) || 0;
   const charges = round2(brut * pct / 100);
-  return {ym, rows, jours:rows.length, patients, brut, pct, charges, net: round2(brut - charges)};
+  return {ym, rows, jours:rows.length, patients, joursPat, sansPat: rows.length - joursPat, brut, pct, charges, net: round2(brut - charges)};
+}
+
+const hasPat = p => Number.isInteger(p) && p >= 0;          // nombre de patients renseigné ?
+function patientsLabel(rep){
+  if(!rep.joursPat) return 'Non renseigné';
+  if(!rep.sansPat) return nf.format(rep.patients);
+  return `${nf.format(rep.patients)} (renseigné pour ${rep.joursPat} jour${rep.joursPat > 1 ? 's' : ''} sur ${rep.jours})`;
 }
 
 function mailParts(rep){
@@ -502,7 +512,7 @@ function mailParts(rep){
 Voici le bilan de ${monthLabel(rep.ym).toLowerCase()} pour ${cab} :
 
 - Jours travaillés : ${rep.jours}
-- Nombre total de patients : ${nf.format(rep.patients)}
+- Nombre total de patients : ${patientsLabel(rep)}
 - Recettes du mois : ${eur.format(rep.brut)}
 - Charges du cabinet (${nf.format(rep.pct)} %) : − ${eur.format(rep.charges)}
 - Recettes nettes : ${eur.format(rep.net)}
@@ -515,14 +525,14 @@ ${s.doctorName || ''}`);
 function renderReport(keepControl=false){
   const ym = state.bilanMonth, rep = computeReport(ym), s = state.settings;
   const cab = s.cabinetName || 'Cabinet MBS';
-  const detail = rep.rows.map(r => `<tr><td>${esc(cap(parseISO(r.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})))}</td><td>${r.patients}</td><td>${eur.format(r.recettes)}</td></tr>`).join('');
+  const detail = rep.rows.map(r => `<tr><td>${esc(cap(parseISO(r.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})))}</td><td>${hasPat(r.patients) ? r.patients : '–'}</td><td>${eur.format(r.recettes)}</td></tr>`).join('');
   $('#reportDoc').innerHTML = `
     <h3>Bilan mensuel – ${esc(monthLabel(ym))}</h3>
     <p class="sub">${esc(cab)}${s.doctorName ? ' · ' + esc(s.doctorName) : ''}</p>
     ${rep.jours ? `
     <table class="kv">
       <tr><td>Jours travaillés</td><td>${rep.jours}</td></tr>
-      <tr><td>Nombre total de patients</td><td>${nf.format(rep.patients)}</td></tr>
+      <tr><td>Nombre total de patients</td><td>${esc(patientsLabel(rep))}</td></tr>
       <tr><td>Recettes du mois</td><td>${eur.format(rep.brut)}</td></tr>
       <tr><td>Charges du cabinet (${nf.format(rep.pct)} %)</td><td>− ${eur.format(rep.charges)}</td></tr>
       <tr class="total"><td>Recettes nettes totales</td><td>${eur.format(rep.net)}</td></tr>
@@ -590,9 +600,10 @@ $('#fRecettes').addEventListener('input', updateHint);
 
 $('#dayForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const patients = parseInt($('#fPatients').value, 10);
+  const pRaw = $('#fPatients').value.trim();
+  const patients = pRaw === '' ? null : Number(pRaw);          // facultatif
   const rec = parseNum($('#fRecettes').value);
-  if(!Number.isInteger(patients) || patients < 0) return toast('Nombre de patients invalide.', true);
+  if(patients !== null && (!Number.isInteger(patients) || patients < 0)) return toast('Nombre de patients invalide.', true);
   if(!isFinite(rec) || rec < 0) return toast('Montant des recettes invalide.', true);
   const data = {patients, recettes: round2(rec), updatedAt: Date.now()};
   try {
@@ -672,7 +683,7 @@ function renderHistory(){
       <div class="hmain">
         <b>${esc(monthLabel(ym))}</b> ${sentBadge} ${rp.paid ? '<span class="badge paid">Payé</span>' : ''}
         ${changed ? '<span class="badge warn">Chiffres modifiés depuis le dernier envoi</span>' : ''}
-        <span class="hnums">${rep.jours} jour${rep.jours > 1 ? 's' : ''} · ${nf.format(rep.patients)} patients · recettes ${eur.format(rep.brut)} · net ${eur.format(rep.net)}</span>
+        <span class="hnums">${rep.jours} jour${rep.jours > 1 ? 's' : ''} · ${rep.joursPat ? nf.format(rep.patients) + ' patients' : 'patients non renseignés'} · recettes ${eur.format(rep.brut)} · net ${eur.format(rep.net)}</span>
         ${rp.sends.length ? `<details><summary>Dates d'envoi (${rp.sends.length})</summary><ul>${
           rp.sends.slice().reverse().map(x => `<li>${esc(fmtDT(x.sentAt))} → ${esc(x.to || '')}${x.net != null ? ' · net envoyé ' + esc(eur.format(x.net)) : ''} · ${esc(sendStatus(x))}</li>`).join('')
         }</ul></details>` : ''}
@@ -733,7 +744,7 @@ function buildPdf(jsPDF, rep, s){
   y += 4; hr(y, ink, 0.6);
   const lines = [
     ['Jours travaillés', String(rep.jours)],
-    ['Nombre total de patients', nf.format(rep.patients)],
+    ['Nombre total de patients', patientsLabel(rep)],
     ['Recettes du mois', money(rep.brut)],
     [`Charges du cabinet (${nf.format(rep.pct)} %)`, '- ' + money(rep.charges)]
   ];
@@ -767,7 +778,7 @@ function buildPdf(jsPDF, rep, s){
     if(i % 2){ doc.setFillColor(250, 252, 252); doc.rect(M, y - 5, R - M, 7, 'F'); }
     color(ink); font('normal', 10);
     doc.text(plain(cap(parseISO(r.date).toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'}))), M + 2, y);
-    doc.text(String(r.patients), 135, y, {align:'right'});
+    doc.text(hasPat(r.patients) ? String(r.patients) : '-', 135, y, {align:'right'});
     doc.text(money(r.recettes), R - 2, y, {align:'right'});
     y += 7;
   });
@@ -775,7 +786,7 @@ function buildPdf(jsPDF, rep, s){
   hr(y - 4, ink, 0.5); y += 2;
   color(ink); font('bold', 10);
   doc.text('Total', M + 2, y);
-  doc.text(nf.format(rep.patients), 135, y, {align:'right'});
+  doc.text(rep.joursPat ? nf.format(rep.patients) : '-', 135, y, {align:'right'});
   doc.text(money(rep.brut), R - 2, y, {align:'right'});
 
   // Pied de page
